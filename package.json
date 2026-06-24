@@ -36,5 +36,8 @@
     "microservice"
   ],
   "author": "QA Healthcare Team",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "postman-cli": "^1.39.2"
+  }
 }
