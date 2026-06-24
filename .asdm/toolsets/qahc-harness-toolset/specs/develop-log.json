@@ -1,0 +1,209 @@
+{
+  "$description": "develop-log.json 结构规范 — 定义开发进度跟踪文件的标准格式，供 qahc-harness-plan 和 qahc-harness-develop 两个 action 产出/消费",
+  "$schema_version": "1.0.0",
+
+  "top_level": {
+    "feature_id": {
+      "type": "string",
+      "required": true,
+      "description": "特性编号，格式 FT-XXX，如 FT-001",
+      "example": "FT-001"
+    },
+    "feature_name": {
+      "type": "string",
+      "required": true,
+      "description": "特性名称",
+      "example": "JSON存储重构为MySQL持久化存储"
+    },
+    "plan_path": {
+      "type": "string",
+      "required": true,
+      "description": "对应 Plan.md 文档的相对路径",
+      "example": ".asdm/workspace/qahc-harness/feat/FT-001-json-to-mysql/FT-001-json-to-mysql-Plan.md"
+    },
+    "base_commit": {
+      "type": "string",
+      "required": true,
+      "description": "开发起点的 Git commit ID（当前分支 HEAD 的完整 SHA-1），用于后续 diff 对比检测当前 feat 所提交代码的差异。由 qahc-harness-plan 在初始化 develop-log.json 时通过 git rev-parse HEAD 获取",
+      "format": "40-character git commit hash",
+      "example": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0"
+    },
+    "current_phase": {
+      "type": "number",
+      "required": true,
+      "description": "当前所在 Phase 编号",
+      "example": 1
+    },
+    "current_task": {
+      "type": "string",
+      "required": true,
+      "description": "当前任务编号，格式 {P}.{T}，如 1.1",
+      "example": "1.1"
+    },
+    "tasks": {
+      "type": "object",
+      "required": true,
+      "description": "所有任务的字典，键为任务编号（如 1.1, 1.2），值为任务对象。详见 task_entry 定义"
+    },
+    "last_updated": {
+      "type": "string",
+      "required": true,
+      "format": "ISO 8601 datetime with timezone offset",
+      "description": "文件最后更新时间",
+      "example": "2026-05-19T14:18:00+08:00"
+    },
+    "feature_status": {
+      "type": "string",
+      "required": false,
+      "description": "特性整体状态。所有任务完成后由 /qahc-harness-verify 在验收完成时写入，或由用户手动确认后设置",
+      "enum": ["in_progress", "completed"],
+      "example": "completed"
+    },
+    "review_path": {
+      "type": "string",
+      "required": false,
+      "description": "功能验收报告（Review.md）的相对路径。由 /qahc-harness-verify 生成 Review 文档后写入",
+      "example": ".asdm/workspace/qahc-harness/feat/FT-001-json-to-mysql/FT-001-json-to-mysql-Review.md"
+    },
+    "review_conclusion": {
+      "type": "string",
+      "required": false,
+      "description": "验收结论。仅在 feature_status=completed 时有意义",
+      "enum": ["pass", "conditional_pass", "fail"],
+      "example": "conditional_pass"
+    },
+    "review_completion_rate": {
+      "type": "string",
+      "required": false,
+      "description": "DoD 完成率百分比。由 /qahc-harness-verify 计算得出",
+      "example": "97.9%"
+    }
+  },
+
+  "task_entry": {
+    "$description": "tasks 字典中每个任务对象的结构",
+    "name": {
+      "type": "string",
+      "required": true,
+      "description": "任务名称",
+      "example": "Docker Compose + Flyway 建表与种子数据"
+    },
+    "phase": {
+      "type": "number",
+      "required": true,
+      "description": "所属 Phase 编号",
+      "example": 1
+    },
+    "phase_name": {
+      "type": "string",
+      "required": true,
+      "description": "所属 Phase 名称",
+      "example": "基础设施部署"
+    },
+    "depends_on": {
+      "type": "array",
+      "required": true,
+      "description": "依赖的任务 ID 列表，无依赖时为空数组 []。必须与 Plan 文档中「实施顺序建议 → 关键依赖链」一致",
+      "items": { "type": "string" },
+      "example": ["1.1"]
+    },
+    "status": {
+      "type": "string",
+      "required": true,
+      "description": "任务当前状态",
+      "enum": ["pending", "in_progress", "implemented", "verifying", "verified", "fixing", "human_confirming", "completed", "rejected", "blocked"],
+      "enum_descriptions": {
+        "pending": "等待执行（初始状态）",
+        "in_progress": "正在实现（用户确认进入后）",
+        "implemented": "编码完成（AI 完成代码编写）",
+        "verifying": "正在验证（进入验证步骤）",
+        "verified": "验证通过（所有验证步骤通过）",
+        "fixing": "修复中（验证失败或人工否决）",
+        "human_confirming": "等待人工确认（验证通过后）",
+        "completed": "已完成（人工确认通过）",
+        "rejected": "人工拒绝（人工确认不通过）",
+        "blocked": "阻塞（连续修复 3 次仍失败）"
+      }
+    },
+    "history": {
+      "type": "array",
+      "required": true,
+      "description": "状态变更历史记录数组，初始值为 []。每个条目记录一次状态转换",
+      "items": {
+        "$description": "单条历史记录",
+        "timestamp": {
+          "type": "string",
+          "required": true,
+          "format": "ISO 8601 datetime with timezone offset",
+          "description": "状态变更时间",
+          "example": "2026-05-17T04:17:00+08:00"
+        },
+        "from": {
+          "type": "string",
+          "required": true,
+          "description": "变更前的状态值",
+          "example": "pending"
+        },
+        "to": {
+          "type": "string",
+          "required": true,
+          "description": "变更后的状态值",
+          "example": "in_progress"
+        },
+        "reason": {
+          "type": "string",
+          "required": true,
+          "description": "状态变更原因描述",
+          "example": "用户确认开始"
+        }
+      }
+    }
+  },
+
+  "state_transitions": {
+    "$description": "标准状态流转路径",
+    "primary_path": {
+      "description": "正常流转路径",
+      "flow": "pending → in_progress → implemented → verifying → verified → human_confirming → completed"
+    },
+    "error_path": {
+      "description": "验证失败流转",
+      "flow": "verifying → fixing → verifying (循环，最多3次 → blocked)"
+    },
+    "rejection_path": {
+      "description": "人工拒绝流转",
+      "flow": "human_confirming → rejected → fixing → verifying → ..."
+    },
+    "typical_history_entries": [
+      { "note": "用户确认开始任务", "from": "pending", "to": "in_progress", "reason": "用户确认开始" },
+      { "note": "编码实现完成", "from": "in_progress", "to": "implemented", "reason": "完成 X 个文件的创建/修改" },
+      { "note": "自动验证完成", "from": "implemented", "to": "verified", "reason": "N/N 验证步骤全部通过" },
+      { "note": "等待人工确认", "from": "verified", "to": "human_confirming", "reason": "等待人工确认" },
+      { "note": "用户确认通过", "from": "human_confirming", "to": "completed", "reason": "用户确认通过" }
+    ]
+  },
+
+  "complete_example": {
+    "feature_id": "FT-001",
+    "feature_name": "JSON存储重构为MySQL持久化存储",
+    "plan_path": ".asdm/workspace/qahc-harness/feat/FT-001-json-to-mysql/FT-001-json-to-mysql-Plan.md",
+    "base_commit": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
+    "current_phase": 1,
+    "current_task": "1.1",
+    "tasks": {
+      "1.1": {
+        "name": "Docker Compose + Flyway 建表与种子数据",
+        "phase": 1,
+        "phase_name": "基础设施部署",
+        "depends_on": [],
+        "status": "pending",
+        "history": []
+      }
+    },
+    "last_updated": "2026-05-17T04:00:00+08:00",
+    "feature_status": "completed",
+    "review_path": ".asdm/workspace/qahc-harness/feat/FT-001-json-to-mysql/FT-001-json-to-mysql-Review.md",
+    "review_conclusion": "pass",
+    "review_completion_rate": "100%"
+  }
+}

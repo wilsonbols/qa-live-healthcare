@@ -1,0 +1,14 @@
+{
+  "guid": "784a1c5b-2b8d-4fee-a1a4-12078f68ac8c",
+  "registry_id": "qahc-context-builder",
+  "name": "QA Healthcare 工程上下文工具集",
+  "description": "为 QA Healthcare 项目提供完整的工程上下文，包括建立、更新和验证。",
+  "version": "0.0.2",
+  "configType": "toolset",
+  "entryPoint":"README.md",
+  "commands": {
+    "qahc-context-init": "上下文初始化",
+    "qahc-context-update": "上下文更新",
+    "qahc-context-validate": "上下文验证"
+  }
+}

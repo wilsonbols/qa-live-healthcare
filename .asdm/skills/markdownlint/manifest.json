@@ -1,0 +1,14 @@
+{
+    "registry_id": "markdownlint",
+    "guid": "d7ae7a4d-501a-4779-8d42-c003325883fd",
+    "name": "Markdown Lint",
+    "description": "Validate, fix, and ensure quality of Markdown files using markdownlint-cli. Provides standardized linting rules, auto-fix capabilities, and integration guidance for AI-generated Markdown content.",
+    "scenario": "quality-assurance",
+    "version": "1.0.1",
+    "entryPoint": "markdownlint/SKILL.md",
+	"configType": "skill",
+    "dateCreated": "2026-05-16T01:45:00Z",
+    "dateUpdated": "2026-05-16T01:45:00Z",
+    "createdBy": "ASDM Platform",
+    "updatedBy": "ASDM Platform"
+}
