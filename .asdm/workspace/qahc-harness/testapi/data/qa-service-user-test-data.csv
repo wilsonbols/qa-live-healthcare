@@ -1,0 +1,5 @@
+testCase,method,path,requestBody,expectedStatus,expectedContentType
+GET CORS测试,GET,/api/test/cors,,200,application/json
+POST CORS测试(带请求体),POST,/api/test/cors,"{""name"":""test"",""value"":123}",200,application/json
+POST CORS测试(空Body),POST,/api/test/cors,,200,application/json
+OPTIONS CORS预检,OPTIONS,/api/test/cors,,200,

@@ -1,0 +1,5 @@
+timeStamp,elapsed,label,responseCode,responseMessage,threadName,dataType,success,failureMessage,bytes,sentBytes,grpThreads,allThreads,URL,Latency,IdleTime,Connect
+1782281931062,60,GET /api/test/cors,200,,TestController 1-1,text,true,,360,129,1,1,http://localhost:8080/api/test/cors,59,0,43
+1782281932282,8,POST /api/test/cors (带请求体),200,,TestController 1-1,text,true,,407,209,1,1,http://localhost:8080/api/test/cors,8,0,0
+1782281932333,6,POST /api/test/cors (空Body),200,,TestController 1-1,text,true,,384,181,1,1,http://localhost:8080/api/test/cors,5,0,0
+1782281932342,4,OPTIONS /api/test/cors,200,,TestController 1-1,,true,,263,133,1,1,http://localhost:8080/api/test/cors,4,0,0
