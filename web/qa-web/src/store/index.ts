@@ -77,8 +77,15 @@ export const store = {
     );
 
     if (!patient) {
+      // 使用 name+birthday 生成确定性 ID，确保同一用户多次登录 ID 不变
+      const str = `${name}:${birthday}`;
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash;
+      }
       patient = {
-        id: `patient${Date.now()}`,
+        id: `patient${Math.abs(hash)}`,
         name,
         birthday,
         phone: '',

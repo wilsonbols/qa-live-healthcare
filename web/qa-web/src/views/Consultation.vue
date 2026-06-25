@@ -1,6 +1,7 @@
 <template>
   <div class="consultation">
     <div class="consultation-container">
+      <!-- ====== 患者身份验证 ====== -->
       <div v-if="!currentPatient" class="auth-section">
         <div class="auth-card">
           <h1>患者身份验证</h1>
@@ -49,6 +50,7 @@
         </div>
       </div>
 
+      <!-- ====== 患者门户 ====== -->
       <div v-else class="patient-portal">
         <div class="portal-header">
           <div class="patient-info">
@@ -76,46 +78,110 @@
           />
         </div>
 
+        <!-- ====== 我的问题列表 ====== -->
         <div class="questions-section">
           <div class="section-header">
-            <h2>我的问题</h2>
-            <a-button type="primary" @click="showSubmitModal">
-              <PlusOutlined />
-              提交问题
-            </a-button>
+            <h2>我的问题 ({{ myQuestions.length }})</h2>
+            <a-space>
+              <a-button @click="refreshQuestions" :loading="loading">
+                <ReloadOutlined />
+                刷新
+              </a-button>
+              <a-button type="primary" @click="showSubmitModal">
+                <PlusOutlined />
+                提交问题
+              </a-button>
+            </a-space>
           </div>
 
-          <a-empty v-if="myQuestions.length === 0" description="您还没有提交过问题" />
+          <a-spin :spinning="loading">
+            <!-- 筛选栏 -->
+            <div class="filter-bar">
+              <a-range-picker
+                v-model:value="filterDateRange"
+                :placeholder="['开始日期', '结束日期']"
+                format="YYYY-MM-DD"
+                :allowClear="true"
+                style="width: 260px"
+              />
+              <a-select
+                v-model:value="filterDoctorId"
+                placeholder="全部医生"
+                :allowClear="true"
+                style="width: 180px"
+              >
+                <a-select-option value="">全部医生</a-select-option>
+                <a-select-option
+                  v-for="doctor in store.getActiveDoctors()"
+                  :key="doctor.id"
+                  :value="doctor.id"
+                >
+                  {{ doctor.name }}
+                </a-select-option>
+              </a-select>
+              <a-button type="primary" @click="applyFilter">
+                <SearchOutlined /> 查询
+              </a-button>
+              <a-button @click="resetFilter">
+                <ReloadOutlined /> 重置
+              </a-button>
+            </div>
 
-          <div v-else class="my-questions-list">
-            <a-card
-              v-for="question in myQuestions"
-              :key="question.id"
-              class="question-item"
-            >
-              <template #title>
-                <div class="question-title">
-                  <span>{{ question.doctorName }}</span>
-                  <a-tag :color="question.status === 'answered' ? 'green' : 'orange'">
-                    {{ question.status === 'answered' ? '已解答' : '待解答' }}
-                  </a-tag>
+            <a-empty v-if="myQuestions.length === 0 && !loading" description="暂无匹配的问题" />
+
+            <div v-else class="my-questions-list">
+              <a-card
+                v-for="question in myQuestions"
+                :key="question.id"
+                class="question-item"
+              >
+                <template #title>
+                  <div class="question-title">
+                    <span>{{ question.doctorName }}</span>
+                    <a-space>
+                      <a-tag :color="question.status === 'answered' ? 'green' : 'orange'">
+                        {{ question.status === 'answered' ? '已解答' : '待解答' }}
+                      </a-tag>
+                    </a-space>
+                  </div>
+                </template>
+                <div class="question-detail">
+                  <p class="question-text"><strong>问题:</strong> {{ question.question }}</p>
+                  <p class="submit-time">提交时间: {{ formatTime(question.submitTime!) }}</p>
+                  <div v-if="question.status === 'answered'" class="answer-section">
+                    <a-divider />
+                    <p class="answer-text"><strong>医生回复:</strong> {{ question.answer }}</p>
+                    <p class="answer-time">回复时间: {{ formatTime(question.answerTime!) }}</p>
+                  </div>
                 </div>
-              </template>
-              <div class="question-detail">
-                <p class="question-text"><strong>问题:</strong> {{ question.question }}</p>
-                <p class="submit-time">提交时间: {{ formatTime(question.submitTime) }}</p>
-                <div v-if="question.status === 'answered'" class="answer-section">
-                  <a-divider />
-                  <p class="answer-text"><strong>医生回复:</strong> {{ question.answer }}</p>
-                  <p class="answer-time">回复时间: {{ formatTime(question.answerTime!) }}</p>
-                </div>
-              </div>
-            </a-card>
-          </div>
+                <template #actions>
+                  <a-popconfirm
+                    title="确定要删除这个问题吗？"
+                    ok-text="确定"
+                    cancel-text="取消"
+                    @confirm="handleDeleteQuestion(question.id!)"
+                  >
+                    <a-button type="link" danger size="small">
+                      <DeleteOutlined /> 删除
+                    </a-button>
+                  </a-popconfirm>
+                  <a-button
+                    type="link"
+                    size="small"
+                    @click="showEditModal(question)"
+                    v-if="question.status === 'pending'"
+                  >
+                    <EditOutlined /> 编辑
+                  </a-button>
+                </template>
+              </a-card>
+            </div>
+          </a-spin>
         </div>
       </div>
     </div>
 
+    <!-- ====== 提交问题 Modal ====== -->
     <a-modal
       v-model:open="submitModalVisible"
       title="提交问题"
@@ -159,6 +225,26 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- ====== 编辑问题 Modal ====== -->
+    <a-modal
+      v-model:open="editModalVisible"
+      title="编辑问题"
+      @ok="handleUpdateQuestion"
+      @cancel="editModalVisible = false"
+      :confirmLoading="submitting"
+      width="600px"
+    >
+      <a-form layout="vertical">
+        <a-form-item label="问题内容" required>
+          <a-textarea
+            v-model:value="editForm.question"
+            :rows="6"
+            placeholder="请修改您的问题..."
+          />
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -170,21 +256,39 @@ import dayjs, { Dayjs } from 'dayjs';
 import {
   UserOutlined,
   LogoutOutlined,
-  PlusOutlined
+  PlusOutlined,
+  ReloadOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  SearchOutlined,
 } from '@ant-design/icons-vue';
 import { store, Doctor } from '../store';
+import {
+  getQuestions,
+  createQuestion,
+  updateQuestion,
+  deleteQuestion,
+  type QuestionDTO,
+  type CreateQuestionRequest,
+} from '../api';
 
 const route = useRoute();
 
+// ---- 患者状态 ----
 const currentPatient = computed(() => store.state.currentPatient);
-const myQuestions = computed(() =>
-  currentPatient.value
-    ? store.getQuestionsByPatient(currentPatient.value.id)
-    : []
-);
+const loading = ref(false);
+const myQuestions = ref<QuestionDTO[]>([]);
 
+// ---- 医生选择 ----
 const selectedDoctor = ref<Doctor | null>(null);
 
+const availableDoctors = computed(() => {
+  return selectedDoctor.value
+    ? [selectedDoctor.value]
+    : store.getActiveDoctors();
+});
+
+// ---- 身份验证 ----
 const authForm = reactive({
   name: '',
   birthday: null as Dayjs | null,
@@ -195,6 +299,7 @@ const authRules = {
   birthday: [{ required: true, message: '请选择生日' }],
 };
 
+// ---- 提交问题 ----
 const submitModalVisible = ref(false);
 const submitting = ref(false);
 
@@ -203,23 +308,64 @@ const questionForm = reactive({
   question: '',
 });
 
-const availableDoctors = computed(() => {
-  return selectedDoctor.value
-    ? [selectedDoctor.value]
-    : store.getActiveDoctors();
+// ---- 筛选条件 ----
+const filterDateRange = ref<[Dayjs, Dayjs] | null>(null);
+const filterDoctorId = ref<string>('');
+
+// ---- 编辑问题 ----
+const editModalVisible = ref(false);
+const editingQuestionId = ref<number>(0);
+const editForm = reactive({
+  question: '',
 });
 
+// ==================== 初始化 ====================
 onMounted(() => {
   const doctorUsername = route.params.doctorUsername as string;
   if (doctorUsername) {
     const doctor = store.getDoctorByUsername(doctorUsername);
     if (doctor && doctor.isActive) {
       selectedDoctor.value = doctor;
-      questionForm.doctorId = doctor.id;
     }
   }
 });
 
+// ==================== 数据加载 ====================
+async function refreshQuestions() {
+  if (!currentPatient.value) return;
+  loading.value = true;
+  try {
+    const params: any = {
+      patientId: parseNumericId(currentPatient.value.id),
+    };
+    // 附加筛选条件
+    if (filterDoctorId.value) {
+      params.doctorId = parseNumericId(filterDoctorId.value);
+    }
+    if (filterDateRange.value) {
+      const [start, end] = filterDateRange.value;
+      params.startDate = start.startOf('day').toISOString();
+      params.endDate = end.endOf('day').toISOString();
+    }
+    myQuestions.value = await getQuestions(params);
+  } catch (e: any) {
+    message.error('加载问题失败: ' + e.message);
+  } finally {
+    loading.value = false;
+  }
+}
+
+function applyFilter() {
+  refreshQuestions();
+}
+
+function resetFilter() {
+  filterDateRange.value = null;
+  filterDoctorId.value = '';
+  refreshQuestions();
+}
+
+// ==================== 身份验证 ====================
 const verifyPatient = () => {
   const birthday = authForm.birthday?.format('YYYY-MM-DD');
   if (!birthday) {
@@ -238,23 +384,29 @@ const verifyPatient = () => {
   } else {
     message.success('首次登录,已为您创建账户!');
   }
+
+  // 加载该患者的问题
+  refreshQuestions();
 };
 
 const logoutPatient = () => {
   store.logoutPatient();
   selectedDoctor.value = null;
+  myQuestions.value = [];
   message.success('已切换用户');
 };
 
+// ==================== 医生选择 ====================
 const clearSelectedDoctor = () => {
   selectedDoctor.value = null;
-  questionForm.doctorId = '';
 };
 
+// ==================== 提交问题 ====================
 const showSubmitModal = () => {
   if (selectedDoctor.value) {
     questionForm.doctorId = selectedDoctor.value.id;
   }
+  questionForm.question = '';
   submitModalVisible.value = true;
 };
 
@@ -266,38 +418,88 @@ const closeSubmitModal = () => {
   questionForm.question = '';
 };
 
-const submitQuestion = () => {
+const submitQuestion = async () => {
   if (!questionForm.doctorId) {
     message.error('请选择医生');
     return;
   }
-
   if (!questionForm.question.trim()) {
     message.error('请输入问题');
     return;
   }
+  if (!currentPatient.value) return;
 
   submitting.value = true;
-
-  setTimeout(() => {
+  try {
     const doctor = store.state.doctors.find(d => d.id === questionForm.doctorId);
-    if (doctor && currentPatient.value) {
-      store.addQuestion({
-        patientId: currentPatient.value.id,
-        patientName: currentPatient.value.name,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        question: questionForm.question,
-      });
-
-      message.success('问题提交成功');
-      closeSubmitModal();
-    }
-
+    const payload: CreateQuestionRequest = {
+      patientId: parseNumericId(currentPatient.value.id),
+      patientName: currentPatient.value.name,
+      doctorId: parseNumericId(questionForm.doctorId),
+      doctorName: doctor?.name || '',
+      question: questionForm.question.trim(),
+    };
+    await createQuestion(payload);
+    message.success('问题提交成功');
+    closeSubmitModal();
+    await refreshQuestions();
+  } catch (e: any) {
+    message.error('提交失败: ' + e.message);
+  } finally {
     submitting.value = false;
-  }, 500);
+  }
 };
 
+/** 将 "doc001" 转为 1, "patient123" 转为 123, 纯数字字符串直接转 */
+function parseNumericId(id: string): number {
+  const match = id.match(/\d+/);
+  return match ? parseInt(match[0], 10) : 0;
+}
+
+// ==================== 编辑问题 ====================
+const showEditModal = (question: QuestionDTO) => {
+  editingQuestionId.value = question.id!;
+  editForm.question = question.question;
+  editModalVisible.value = true;
+};
+
+const handleUpdateQuestion = async () => {
+  if (!editForm.question.trim()) {
+    message.error('问题内容不能为空');
+    return;
+  }
+  if (!currentPatient.value) return;
+
+  submitting.value = true;
+  try {
+    await updateQuestion(editingQuestionId.value, {
+      patientId: parseNumericId(currentPatient.value.id),
+      patientName: currentPatient.value.name,
+      doctorId: 0,
+      question: editForm.question.trim(),
+    });
+    message.success('问题更新成功');
+    editModalVisible.value = false;
+    await refreshQuestions();
+  } catch (e: any) {
+    message.error('更新失败: ' + e.message);
+  } finally {
+    submitting.value = false;
+  }
+};
+
+// ==================== 删除问题 ====================
+const handleDeleteQuestion = async (id: number) => {
+  try {
+    await deleteQuestion(id);
+    message.success('问题已删除');
+    await refreshQuestions();
+  } catch (e: any) {
+    message.error('删除失败: ' + e.message);
+  }
+};
+
+// ==================== 工具 ====================
 const formatTime = (time: string) => {
   return dayjs(time).format('YYYY-MM-DD HH:mm');
 };
@@ -409,6 +611,18 @@ const formatTime = (time: string) => {
   font-weight: 600;
   color: #333;
   margin: 0;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #f0f0f0;
+  flex-wrap: wrap;
 }
 
 .my-questions-list {
